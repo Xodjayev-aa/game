@@ -1,0 +1,12 @@
+# dev-only dependencies (jsdom / playwright for tools/smoke-test.js)
+node_modules/
+package-lock.json
+
+# local screenshot / scratch artifacts
+.preview-*.png
+*.log
+.DS_Store
+.env
+
+# local browser-test scratch file
+.browser-test.js

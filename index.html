@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="description" content="RoFrontier — a mobile-first grand-strategy conquest PWA by CoMeBacK_49. Offline AI campaigns, online lobbies, cosmetics and an owner developer console.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="RoFrontier">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="format-detection" content="telephone=no">
+  <title>RoFrontier — Global Conquest</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-screen="title">
+  <div id="app">
+    <!-- ───────────────────────── Header ───────────────────────── -->
+    <header class="topbar" id="topBar" hidden>
+      <div class="brand">
+        <img class="brand-mark" src="icons/icon.svg" alt="" aria-hidden="true">
+        <div class="brand-text">
+          <strong>RO<span>FRONTIER</span></strong>
+          <small>DEVELOPED BY <b>CoMeBacK_49</b></small>
+        </div>
+      </div>
+      <div class="header-stats" id="headerStats">
+        <span class="chip chip-gem" title="Gems"><i class="ic ic-gem"></i><b id="gemCount">0</b></span>
+        <span class="chip chip-coin" title="Battle Coins"><i class="ic ic-coin"></i><b id="coinCount">0</b></span>
+        <span class="chip chip-level" title="Commander level">LV <b id="levelChip">1</b></span>
+        <span class="chip chip-net" id="netBadge" title="Connection status"><span class="net-dot"></span><b id="netLabel">OFFLINE READY</b></span>
+      </div>
+      <button class="icon-btn" id="btnSettings" type="button" aria-label="Settings and help">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm8.4-2.1.1-1.4-.1-1.4 1.6-1.2-1.7-3-1.9.6a7.7 7.7 0 0 0-2.4-1.4L15.6 3h-3.4l-.4 2a7.7 7.7 0 0 0-2.4 1.4l-1.9-.6-1.7 3 1.6 1.2-.1 1.4.1 1.4-1.6 1.2 1.7 3 1.9-.6a7.7 7.7 0 0 0 2.4 1.4l.4 2h3.4l.4-2a7.7 7.7 0 0 0 2.4-1.4l1.9.6 1.7-3-1.6-1.2Z"/></svg>
+      </button>
+    </header>
+
+    <main id="main">
+      <!-- ───────────────────── Title / splash ─────────────────── -->
+      <section class="screen screen-title active" id="screen-title" aria-label="Title screen">
+        <div class="title-bg" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="title-inner">
+          <div class="crest-wrap">
+            <img class="crest" src="icons/icon.svg" alt="RoFrontier crest">
+            <div class="crest-glow" aria-hidden="true"></div>
+          </div>
+          <p class="eyebrow">GLOBAL GRAND STRATEGY</p>
+          <h1 class="game-title">RO<span>FRONTIER</span></h1>
+          <p class="tagline">Command nations. Build empires. Conquer the world — online or completely offline.</p>
+
+          <div class="owner-plate">
+            <span class="owner-dot"></span>
+            <div><small>REGISTERED OWNER / DEVELOPER</small><strong>CoMeBacK_49</strong></div>
+            <span class="owner-badge">ADMIN</span>
+          </div>
+
+          <div class="title-actions">
+            <button class="btn btn-primary btn-xl" id="btnPlay" type="button">
+              <span class="btn-ico">▶</span><span id="btnPlayLabel">PLAY NOW</span>
+            </button>
+            <div class="btn-row">
+              <button class="btn btn-ghost" id="btnNewCampaign" type="button">✚ NEW CAMPAIGN</button>
+              <button class="btn btn-ghost" id="btnOnline" type="button">◈ ONLINE LOBBY</button>
+            </div>
+            <button class="btn btn-install" id="btnInstall" type="button" hidden>↓ INSTALL APP (ADD TO HOME SCREEN)</button>
+          </div>
+
+          <div class="title-features">
+            <span><i>⌁</i> Offline AI</span>
+            <span><i>⬡</i> 70+ Regions</span>
+            <span><i>✦</i> Cosmetics</span>
+            <span><i>☢</i> Nukes</span>
+          </div>
+        </div>
+        <button class="title-footer" id="brandFooter" type="button" aria-label="Credits">
+          <span>Developed by <b>CoMeBacK_49</b></span>
+          <small id="appVersion">v1.2.0 · PWA</small>
+        </button>
+      </section>
+
+      <!-- ───────────────────── Home / dashboard ────────────────── -->
+      <section class="screen" id="screen-home" aria-label="Command center">
+        <div class="page">
+          <div class="page-head">
+            <div>
+              <p class="eyebrow">COMMAND CENTER</p>
+              <h2 id="homeGreeting">Welcome, Commander</h2>
+            </div>
+            <span class="level-pill">LV <b id="homeLevel">1</b></span>
+          </div>
+
+          <div class="card xp-card">
+            <div class="row between"><span>Commander progress</span><b id="xpLabel">0 / 100 XP</b></div>
+            <div class="bar"><div class="bar-fill xp" id="xpBar"></div></div>
+            <small id="xpNext">Next unlock: Ports at level 2</small>
+          </div>
+
+          <div class="stat-grid">
+            <div class="stat"><b id="statMatches">0</b><small>Matches</small></div>
+            <div class="stat"><b id="statWins">0</b><small>Victories</small></div>
+            <div class="stat"><b id="statTerritories">0</b><small>Conquered</small></div>
+            <div class="stat"><b id="statPlaytime">0m</b><small>Playtime</small></div>
+          </div>
+
+          <div class="card continue-card" id="continueCard">
+            <div class="card-icon">⬡</div>
+            <div class="grow">
+              <strong id="continueTitle">No active campaign</strong>
+              <small id="continueSub">Start a new conquest against AI commanders</small>
+            </div>
+            <button class="btn btn-primary btn-sm" id="btnContinue" type="button">NEW GAME</button>
+          </div>
+
+          <div class="section-head"><h3>Daily challenges</h3><small id="dailyReset">Resets at midnight</small></div>
+          <div id="dailyList" class="list"></div>
+
+          <div class="section-head"><h3>Playtime reward track</h3><button class="link-btn" data-nav="vault" type="button">VIEW ALL →</button></div>
+          <div class="card playtime-card">
+            <div class="row between"><strong id="playtimeNext">Next: 5 min</strong><b id="playtimeLabel">0 / 5 min</b></div>
+            <div class="bar"><div class="bar-fill gold" id="playtimeBar"></div></div>
+            <div id="playtimePreview" class="reward-preview"></div>
+          </div>
+
+          <div class="section-head"><h3>Quick actions</h3></div>
+          <div class="quick-grid">
+            <button class="quick" data-nav="setup" type="button"><i>⚔</i><span>Conquest</span></button>
+            <button class="quick" data-nav="store" type="button"><i>◆</i><span>Store</span></button>
+            <button class="quick" data-nav="vault" type="button"><i>✦</i><span>Vault</span></button>
+            <button class="quick" data-nav="lobby" type="button"><i>◈</i><span>Lobby</span></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ───────────────────── Match setup ──────────────────────── -->
+      <section class="screen" id="screen-setup" aria-label="New campaign">
+        <div class="page">
+          <div class="page-head"><div><p class="eyebrow">CAMPAIGN BRIEFING</p><h2>New Conquest</h2></div></div>
+
+          <div class="card form-card">
+            <label class="field-label" for="profileName">COMMANDER NAME</label>
+            <input class="input" id="profileName" type="text" maxlength="20" autocomplete="nickname" spellcheck="false" placeholder="Commander">
+            <p class="hint">The registered owner ID <b>CoMeBacK_49</b> unlocks the exclusive developer console.</p>
+
+            <label class="field-label">AI DIFFICULTY</label>
+            <div class="segmented" id="difficultyGroup" role="group" aria-label="AI difficulty">
+              <button type="button" data-difficulty="easy">RECRUIT</button>
+              <button type="button" data-difficulty="normal" class="active">COMMANDER</button>
+              <button type="button" data-difficulty="hard">WARLORD</button>
+              <button type="button" data-difficulty="insane">LEGEND</button>
+            </div>
+
+            <label class="field-label" for="botRange">RIVAL TRIBES <b id="botCount">3</b></label>
+            <input class="range" id="botRange" type="range" min="1" max="12" step="1" value="3">
+
+            <label class="field-label">BATTLE SPEED</label>
+            <div class="segmented" id="speedGroup" role="group" aria-label="Battle speed">
+              <button type="button" data-speed="off" class="active">TURNS</button>
+              <button type="button" data-speed="normal">REAL-TIME 2s</button>
+              <button type="button" data-speed="fast">BLITZ 1s</button>
+            </div>
+            <p class="hint">Real-time ticks advance the whole world continuously — economy, AI attacks and reinforcements. Q / E change your troop deployment ratio.</p>
+
+            <div class="field-row">
+              <div>
+                <label class="field-label" for="setupColor">NATION THEME</label>
+                <select class="input" id="setupColor"></select>
+              </div>
+              <div>
+                <label class="field-label" for="setupSkin">MAP SKIN</label>
+                <select class="input" id="setupSkin"></select>
+              </div>
+            </div>
+
+            <label class="field-label" for="matchSeed">WORLD SEED</label>
+            <div class="seed-row">
+              <input class="input" id="matchSeed" type="text" maxlength="12" value="49" spellcheck="false">
+              <button class="btn btn-ghost btn-sm" id="btnRandomSeed" type="button">✧</button>
+            </div>
+          </div>
+
+          <div class="card summary-card" id="setupSummary"></div>
+
+          <button class="btn btn-primary btn-xl full" id="btnStartMatch" type="button">⚔ DEPLOY TROOPS</button>
+          <p class="center-hint">Fully playable offline. Progress is saved on this device.</p>
+        </div>
+      </section>
+
+      <!-- ───────────────────── Game ─────────────────────────────── -->
+      <section class="screen screen-game" id="screen-game" aria-label="World map">
+        <div class="map-wrap" id="mapWrap">
+          <canvas id="mapCanvas" aria-label="Interactive strategy map. Tap a territory to select it, then tap an adjacent territory to attack or transfer troops."></canvas>
+          <div class="map-vignette" aria-hidden="true"></div>
+
+          <div class="game-hud top">
+            <div class="hud-left">
+              <div class="phase-pill" id="gamePhase">TURN 1 · YOUR MOVE</div>
+              <div class="turn-summary" id="gameSummary">0 regions · 0 troops</div>
+              <div class="deploy-pill" id="deployPill" title="Deployment ratio — Q / E hotkeys">
+                <button type="button" id="btnDeployDown" aria-label="Lower deployment ratio">−</button>
+                <span>DEPLOY <b id="deployValue">50%</b></span>
+                <button type="button" id="btnDeployUp" aria-label="Raise deployment ratio">+</button>
+              </div>
+            </div>
+            <div class="hud-right">
+              <button class="map-btn" id="btnZoomIn" type="button" aria-label="Zoom in">✚</button>
+              <button class="map-btn" id="btnZoomOut" type="button" aria-label="Zoom out">−</button>
+              <button class="map-btn" id="btnFit" type="button" aria-label="Fit map">⊙</button>
+              <button class="map-btn" id="btnCommand" type="button" aria-label="Developer command bar" hidden>&gt;_</button>
+              <button class="map-btn" id="btnGameMenu" type="button" aria-label="Game menu">☰</button>
+            </div>
+          </div>
+
+          <div class="selection-card" id="selectionCard" hidden></div>
+          <div class="map-hint" id="mapHint">Tap your territory, then a neighbour to attack · Drag to pan · Pinch to zoom</div>
+          <div class="event-ticker" id="eventTicker" hidden></div>
+          <div class="map-legend" id="mapLegend"></div>
+        </div>
+
+        <div class="action-bar" id="actionBar">
+          <div class="action-head">
+            <div class="grow">
+              <strong id="actionTitle">Select a territory</strong>
+              <small id="actionSub">Your empire awaits orders, Commander.</small>
+            </div>
+            <span class="warhead-chip" id="warheadChip" title="Nuclear warheads">☢ <b>0</b></span>
+          </div>
+          <div class="action-row" id="actionRow">
+            <button class="action" data-action="attack" type="button"><i>⚔</i><span>Attack</span></button>
+            <button class="action" data-action="transfer" type="button"><i>⇄</i><span>Transfer</span></button>
+            <button class="action" data-action="defend" type="button"><i>⬟</i><span>Defend</span></button>
+            <button class="action" data-action="build" type="button"><i>⚙</i><span>Build</span></button>
+            <button class="action" data-action="nuke" type="button"><i>☢</i><span>Nuke</span></button>
+            <button class="action" data-action="info" type="button"><i>◎</i><span>Info</span></button>
+            <button class="action" data-action="diplomacy" type="button"><i>⚑</i><span>Allies</span></button>
+          </div>
+          <div class="action-footer">
+            <button class="btn btn-ghost btn-sm" id="btnClearSelection" type="button">CLEAR</button>
+            <button class="btn btn-primary end-turn" id="btnEndTurn" type="button">END TURN <span>▶</span></button>
+          </div>
+        </div>
+
+        <div class="command-bar" id="commandBar" hidden>
+          <div class="command-quick" id="commandQuick"></div>
+          <div class="command-input-row">
+            <span class="prompt">&gt;</span>
+            <input class="input" id="commandInput" type="text" spellcheck="false" autocomplete="off" placeholder="/help — owner commands">
+            <button class="btn btn-primary btn-sm" id="btnCommandSend" type="button">RUN</button>
+            <button class="icon-btn" id="btnCommandClose" type="button" aria-label="Close command bar">✕</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ───────────────────── Store ────────────────────────────── -->
+      <section class="screen" id="screen-store" aria-label="Store">
+        <div class="page">
+          <div class="page-head"><div><p class="eyebrow">QUARTERMASTER</p><h2>Supply Store</h2></div></div>
+          <div class="notice"><b>SIMULATED STOREFRONT</b><span>No real payments are processed. All purchases are local, offline-friendly and free — for demo/progression purposes only.</span></div>
+          <div class="section-head"><h3>Gem packs <small>(simulated IAP)</small></h3></div>
+          <div class="grid-2" id="iapGrid"></div>
+          <div class="section-head"><h3>Battle Coins</h3></div>
+          <div class="grid-2" id="coinGrid"></div>
+          <div class="section-head"><h3>War materiel</h3></div>
+          <div class="grid-2" id="supplyGrid"></div>
+          <div class="section-head"><h3>Cosmetic bundles</h3></div>
+          <div class="grid-2" id="bundleGrid"></div>
+          <div class="card free-card">
+            <div><strong>Daily supply drop</strong><small>Claim free Gems once per day.</small></div>
+            <button class="btn btn-ghost btn-sm" id="btnFreeGems" type="button">CLAIM +15 ◆</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ───────────────────── Vault / cosmetics ────────────────── -->
+      <section class="screen" id="screen-vault" aria-label="Vault">
+        <div class="page">
+          <div class="page-head"><div><p class="eyebrow">ARMORY</p><h2>Cosmetic Vault</h2></div></div>
+          <div class="tabs" id="vaultTabs" role="tablist">
+            <button type="button" data-tab="colors" class="active">Colors</button>
+            <button type="button" data-tab="skins">Maps</button>
+            <button type="button" data-tab="icons">Icons</button>
+            <button type="button" data-tab="victories">Victory</button>
+            <button type="button" data-tab="badges">Badges</button>
+            <button type="button" data-tab="traits">Traits</button>
+          </div>
+          <div class="grid-2" id="vaultGrid"></div>
+
+          <div class="section-head"><h3>Playtime reward track</h3></div>
+          <div class="card">
+            <div class="row between"><strong>Lifetime playtime</strong><b id="vaultPlaytime">0m</b></div>
+            <div class="bar"><div class="bar-fill gold" id="vaultPlaytimeBar"></div></div>
+          </div>
+          <div class="list" id="playtimeList"></div>
+
+          <div class="section-head"><h3>Achievements</h3></div>
+          <div class="list" id="achievementList"></div>
+        </div>
+      </section>
+
+      <!-- ───────────────────── Online lobby ─────────────────────── -->
+      <section class="screen" id="screen-lobby" aria-label="Online lobby">
+        <div class="page">
+          <div class="page-head"><div><p class="eyebrow">MULTIPLAYER</p><h2>Online Lobby</h2></div></div>
+
+          <div class="card connection-card">
+            <div class="row between">
+              <div class="grow"><strong>Realtime relay</strong><small id="lobbyStatus">● Checking connection…</small></div>
+              <span class="status-pill" id="lobbyStatusPill">CONNECTING</span>
+            </div>
+            <label class="field-label" for="wsUrl">WEBSOCKET ENDPOINT (OPTIONAL)</label>
+            <div class="seed-row">
+              <input class="input" id="wsUrl" type="text" spellcheck="false" placeholder="wss://your-relay.example/ws">
+              <button class="btn btn-ghost btn-sm" id="btnWsConnect" type="button">CONNECT</button>
+            </div>
+            <p class="hint">Leave blank to use the same-origin <code>/ws</code> relay (included in <code>server.js</code>). If it is unavailable, the lobby automatically runs a fully local simulation so the UI stays testable offline.</p>
+          </div>
+
+          <div class="card form-card" id="lobbyJoinCard">
+            <label class="field-label" for="roomCodeInput">ROOM CODE</label>
+            <input class="input code-input" id="roomCodeInput" type="text" maxlength="6" placeholder="ABC123" spellcheck="false" autocomplete="off">
+            <div class="btn-row">
+              <button class="btn btn-primary" id="btnCreateRoom" type="button">✚ CREATE ROOM</button>
+              <button class="btn btn-ghost" id="btnJoinRoom" type="button">JOIN ROOM</button>
+            </div>
+            <button class="btn btn-ghost full" id="btnQuickMatch" type="button">ϟ QUICK MATCH (LOCAL SIM)</button>
+            <div class="field-row">
+              <div><label class="field-label" for="roomMax">MAX PLAYERS</label>
+                <select class="input" id="roomMax"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div>
+              <div><label class="field-label" for="roomDifficulty">DIFFICULTY</label>
+                <select class="input" id="roomDifficulty"><option value="easy">Recruit</option><option value="normal" selected>Commander</option><option value="hard">Warlord</option><option value="insane">Legend</option></select></div>
+              <div><label class="field-label" for="roomSpeed">BATTLE SPEED</label>
+                <select class="input" id="roomSpeed"><option value="off">Turn-based</option><option value="normal">Real-time 2s</option><option value="fast">Blitz 1s</option></select></div>
+            </div>
+          </div>
+
+          <div class="card room-card" id="roomPanel" hidden>
+            <div class="row between">
+              <div><p class="eyebrow">ROOM</p><h2 class="room-code" id="roomCode">------</h2></div>
+              <button class="btn btn-ghost btn-sm" id="btnCopyCode" type="button">COPY CODE</button>
+            </div>
+            <div class="room-meta" id="roomMeta"></div>
+            <div class="section-head"><h3>Commanders</h3><small id="roomPlayerCount">0 / 4</small></div>
+            <div class="list" id="roomPlayerList"></div>
+            <div class="btn-row">
+              <button class="btn btn-ghost" id="btnReady" type="button">READY</button>
+              <button class="btn btn-primary" id="btnStartRoom" type="button">START MATCH</button>
+            </div>
+            <div class="section-head"><h3>Room chat</h3></div>
+            <div class="chat-log" id="roomChat"></div>
+            <div class="seed-row">
+              <input class="input" id="chatInput" type="text" maxlength="140" placeholder="Message the room…">
+              <button class="btn btn-ghost btn-sm" id="btnChatSend" type="button">SEND</button>
+            </div>
+            <button class="btn btn-danger full" id="btnLeaveRoom" type="button">LEAVE ROOM</button>
+          </div>
+
+          <div class="notice"><b>PROTOCOL</b><span>JSON messages over WebSocket: <code>create_room</code>, <code>join_room</code>, <code>ready</code>, <code>chat</code>, <code>start</code>, <code>leave</code>, <code>ping</code> → server pushes <code>room_state</code>, <code>chat</code>, <code>match_start</code>, <code>error</code>. State is managed with a reducer and optimistic echo + reconnect backoff.</span></div>
+        </div>
+      </section>
+
+      <!-- ───────────────────── Admin console ────────────────────── -->
+      <section class="screen" id="screen-admin" aria-label="Developer console">
+        <div class="page">
+          <div class="page-head"><div><p class="eyebrow">RESTRICTED</p><h2>Owner Console</h2></div></div>
+
+          <div class="card form-card" id="adminLocked">
+            <div class="lock-head"><span class="lock-icon">⌘</span><div><strong>Owner verification required</strong><small>Exclusive administrative access for CoMeBacK_49.</small></div></div>
+            <label class="field-label" for="ownerIdInput">OWNER ID</label>
+            <input class="input" id="ownerIdInput" type="text" spellcheck="false" autocomplete="off" value="CoMeBacK_49">
+            <label class="field-label" for="ownerKeyInput">ACCESS KEY</label>
+            <input class="input" id="ownerKeyInput" type="password" autocomplete="off" placeholder="Enter owner access key">
+            <button class="btn btn-primary full" id="btnOwnerVerify" type="button">UNLOCK CONSOLE</button>
+            <p class="hint" id="adminLockMsg">Bootstrap key for local installs is documented in README.md. After unlocking you can replace it with a private key.</p>
+            <button class="link-btn" id="btnOwnerHelp" type="button">WHY IS THIS RESTRICTED?</button>
+          </div>
+
+          <div id="adminConsole" hidden>
+            <div class="card admin-status" id="adminStatus"></div>
+            <div class="terminal" id="adminLog" role="log" aria-live="polite"></div>
+            <div class="seed-row terminal-input">
+              <span class="prompt">&gt;</span>
+              <input class="input" id="adminInput" type="text" spellcheck="false" autocomplete="off" placeholder="/help">
+              <button class="btn btn-primary btn-sm" id="btnAdminRun" type="button">RUN</button>
+            </div>
+            <div class="command-quick" id="adminQuick"></div>
+            <div class="btn-row admin-controls">
+              <button class="btn btn-ghost btn-sm" id="btnAdminClear" type="button">CLEAR LOG</button>
+              <button class="btn btn-ghost btn-sm" id="btnChangeKey" type="button">CHANGE KEY</button>
+              <button class="btn btn-danger btn-sm" id="btnAdminLock" type="button">LOCK CONSOLE</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ───────────────────── Victory / defeat ─────────────────── -->
+      <section class="screen screen-victory" id="screen-victory" aria-label="Match result">
+        <canvas id="victoryCanvas" aria-hidden="true"></canvas>
+        <div class="victory-inner">
+          <div class="victory-emblem" id="victoryEmblem">★</div>
+          <p class="eyebrow" id="victoryEyebrow">WORLD DOMINATION</p>
+          <h1 id="victoryTitle">VICTORY</h1>
+          <p class="victory-sub" id="victorySub">The world bows to your banner.</p>
+          <div class="card victory-card">
+            <div class="victory-stats" id="victoryStats"></div>
+            <div class="victory-rewards" id="victoryRewards"></div>
+          </div>
+          <div class="title-actions">
+            <button class="btn btn-primary btn-xl" id="btnVictoryAgain" type="button">⚔ PLAY AGAIN</button>
+            <div class="btn-row">
+              <button class="btn btn-ghost" id="btnVictoryHome" type="button">COMMAND CENTER</button>
+              <button class="btn btn-ghost" id="btnVictoryShare" type="button">SHARE RESULT</button>
+            </div>
+          </div>
+          <p class="victory-credit">Developed by <b>CoMeBacK_49</b></p>
+        </div>
+      </section>
+    </main>
+
+    <!-- ───────────────────── Bottom navigation ─────────────────── -->
+    <nav class="bottom-nav" id="bottomNav" aria-label="Main navigation" hidden>
+      <button type="button" data-nav="home"><i>⌂</i><span>Home</span></button>
+      <button type="button" data-nav="setup"><i>⚔</i><span>Conquest</span></button>
+      <button type="button" data-nav="store"><i>◆</i><span>Store</span></button>
+      <button type="button" data-nav="vault"><i>✦</i><span>Vault</span></button>
+      <button type="button" data-nav="lobby"><i>◈</i><span>Lobby</span></button>
+      <button type="button" data-nav="admin"><i>⌘</i><span>Owner</span></button>
+    </nav>
+
+    <div id="toastStack" class="toast-stack" aria-live="polite"></div>
+    <div id="modalRoot"></div>
+  </div>
+
+  <noscript><div class="noscript">RoFrontier needs JavaScript to render the strategy map.</div></noscript>
+  <script src="free-relay.js" defer></script>
+  <script src="admin.js" defer></script>
+  <script src="game.js" defer></script>
+</body>
+</html>

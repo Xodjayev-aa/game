@@ -1,0 +1,42 @@
+{
+  "id": "./",
+  "name": "RoFrontier — Global Conquest",
+  "short_name": "RoFrontier",
+  "description": "A mobile-first grand-strategy conquest game with offline AI campaigns, online lobbies, cosmetics, and an owner developer console by CoMeBacK_49.",
+  "lang": "en",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["fullscreen", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#070b14",
+  "theme_color": "#0b1220",
+  "categories": ["games", "strategy", "entertainment"],
+  "prefer_related_applications": false,
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Conquest",
+      "short_name": "Conquest",
+      "description": "Start a new offline campaign against AI commanders",
+      "url": "./?screen=setup",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Online Lobby",
+      "short_name": "Lobby",
+      "description": "Open the real-time room lobby",
+      "url": "./?screen=lobby",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "screenshots": [
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "form_factor": "narrow", "label": "RoFrontier command crest" }
+  ]
+}
