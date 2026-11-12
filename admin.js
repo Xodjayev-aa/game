@@ -189,7 +189,7 @@
             `session    : ${admin.getSession().token.slice(0, 10)}… (bound to ${OWNER_ID})`,
             `god_mode   : ${ctx.api.isGodMode() ? 'ON' : 'OFF'}`,
             `match      : ${ctx.match ? `#${ctx.match.id} · turn ${ctx.match.turn} · ${ctx.match.mode}` : 'none'}`,
-            `build      : RoFrontier v1.3.0 · Developed by CoMeBacK_49`
+            `build      : RoFrontier v1.3.1 · Developed by CoMeBacK_49`
           ]
         };
       }
@@ -281,7 +281,7 @@
       this.onChange = options.onChange || (() => {});
       this.logs = [];
       this.history = readJSON(HISTORY_STORE, []);
-      this.emit('RoFrontier owner console · v1.3.0', 'info');
+      this.emit('RoFrontier owner console · v1.3.1', 'info');
       this.emit(`Registered owner: ${OWNER_ID}. Type /help for commands.`, 'info');
       if (!this.isUnlocked()) this.emit('LOCKED — verify owner identity + access key to run privileged commands.', 'warn');
     }

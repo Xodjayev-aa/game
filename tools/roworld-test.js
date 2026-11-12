@@ -86,6 +86,26 @@ const digest = (c) => {
   assert.equal(t.state.match.factions.length, 13, '1 human + 12 AI tribes');
   assert.ok(t.state.match.territories.filter((x) => x.capital).length >= 10, 'every big-lobby nation gets a capital');
 
+  // Capture must move survivors, not duplicate them; malformed orders must
+  // not poison troop counts with NaN. Run multiple deterministic dice streams.
+  for (let i = 0; i < 20; i++) {
+    t.startMatch({ seed: `COMBAT-${i}`, bots: 2 });
+    const from = t.state.match.territories.find((x) => x.owner === t.state.match.localFaction &&
+      t.map.adj[x.id].some((id) => t.T(id).owner !== x.owner));
+    const to = t.T(t.map.adj[from.id].find((id) => t.T(id).owner !== from.owner));
+    from.troops = 100; to.troops = 1; to.defended = 0; to.capital = null;
+    const invalid = t.resolveAttack(from.id, to.id, NaN);
+    assert.equal(invalid.ok, false, 'invalid attack rejected');
+    assert.equal(from.troops, 100, 'invalid attack leaves source intact');
+    const result = t.resolveAttack(from.id, to.id, 50);
+    assert.equal(result.conquered, true, 'strong force captures region');
+    assert.equal(from.troops + to.troops, 100 - result.aLosses, 'survivors are moved, never duplicated');
+    assert.equal(from.troops, 50, 'uncommitted garrison stays behind');
+    const badTransfer = t.transferTroops(from.id, to.id, NaN);
+    assert.equal(badTransfer.ok, false, 'invalid transfer rejected');
+    assert.ok(Number.isFinite(from.troops) && Number.isFinite(to.troops), 'garrisons remain finite');
+  }
+
   // Real UI orders preserve territory IDs and the war room is informational.
   t.startMatch({ seed: 'INTEL' });
   const own = t.state.match.territories.find((x) => x.owner === t.state.match.localFaction);

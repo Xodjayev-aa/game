@@ -208,6 +208,24 @@ async function waitFor(label, fn, ms = 6000) {
   B.window.__RF_TEST__.applyRemoteSnapshot(snap);
   assert.equal(digest(A), digest(B), 'late-joiner snapshot reproduces the host state');
 
+  // Eliminating one player must not stop only their simulation. When the
+  // world is won, both devices must record the same winner.
+  for (const client of [tA, tB]) {
+    const m = client.state.match;
+    m.alliances = [];
+    m.territories.forEach((territory, index) => {
+      territory.owner = index < 40 ? aFaction : index < 60 ? m.factions.find((f) => f.isAI).id : 'neutral';
+    });
+    client.checkVictory();
+    assert.equal(m.over, false, 'eliminated player remains in shared simulation');
+    m.territories.forEach((territory, index) => {
+      territory.owner = index < 61 ? aFaction : 'neutral';
+    });
+    client.checkVictory();
+    assert.equal(m.over, true, 'world domination ends the match');
+    assert.equal(m.winner, aFaction, 'winner identity is shared across clients');
+  }
+
   assert.deepEqual(A.errors, [], 'A page errors');
   assert.deepEqual(B.errors, [], 'B page errors');
   console.log(`✓ RoFrontier multiplayer test passed — room ${code}, 2 human seats, ${mA.factions.length - 2} bots, lockstep attack + alliance + tick + AI turn + resync.`);

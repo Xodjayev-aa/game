@@ -54,7 +54,7 @@
   }
   const NEUTRAL = 'neutral';
   const SAVE_KEY = 'rofrontier.save.v2';
-  const VERSION = '1.3.0';
+  const VERSION = '1.3.1';
 
   function hashSeed(str) {
     let h = 2166136261;
@@ -1111,7 +1111,8 @@
     if (areAllied(from.owner, to.owner)) return { ok: false, message: 'Allied nation — break the alliance in Diplomacy first.' };
     const link = isAdjacent(fromId, toId);
     if (!link.ok && !opts.force) return { ok: false, message: 'Target is not adjacent (build a Port for sea lanes).' };
-    committed = clamp(Math.floor(committed), 1, from.troops - 1);
+    if (!Number.isFinite(Number(committed))) return { ok: false, message: 'Invalid troop count.' };
+    committed = clamp(Math.floor(Number(committed)), 1, from.troops - 1);
     if (from.troops < 2) return { ok: false, message: 'Not enough troops to attack.' };
 
     const beforeDefender = to.owner;
@@ -1131,7 +1132,11 @@
       if (aRolls.length === 0 || dRolls.length === 0) break;
       if (aLosses + dLosses > 500) break; // safety valve for extreme stacks
     }
-    const defRemaining = Math.max(0, def - Math.min(def, Math.round(dLosses / defMul)));
+    // The defender holds unless its virtual defence is exhausted and at least
+    // one attacker survives to occupy the region. Avoid rounding a surviving
+    // defence down to zero.
+    const captured = atk > 0 && dLosses >= virtualDef;
+    const defRemaining = captured ? 0 : Math.max(1, def - Math.min(def, Math.round(dLosses / defMul)));
     const fromLosses = committed - atk;
     from.troops -= fromLosses;
 
@@ -1149,7 +1154,10 @@
       conquered = true;
       const prevOwner = to.owner;
       to.owner = from.owner;
-      to.troops = Math.max(1, atk);
+      // Surviving committed troops move into the captured territory; they
+      // must not also remain in the source garrison.
+      from.troops -= atk;
+      to.troops = atk;
       to.defended = 0;
       to.capital = to.capital === prevOwner ? null : to.capital;
       if (prevOwner !== NEUTRAL) {
@@ -1183,8 +1191,9 @@
   function transferTroops(fromId, toId, amount) {
     const from = T(fromId), to = T(toId);
     if (!from || !to || from.owner !== acting() || to.owner !== acting()) return { ok: false, message: 'Both regions must be yours.' };
-    if (!isAdjacent(fromId, toId).ok) return { ok: false, message: 'No route between those regions.' };
-    amount = clamp(Math.floor(amount), 1, from.troops - 1);
+    if (fromId === toId || !isAdjacent(fromId, toId).ok) return { ok: false, message: 'No route between those regions.' };
+    if (!Number.isFinite(Number(amount))) return { ok: false, message: 'Invalid troop count.' };
+    amount = clamp(Math.floor(Number(amount)), 1, from.troops - 1);
     if (from.troops < 2) return { ok: false, message: 'Not enough troops to transfer.' };
     from.troops -= amount; to.troops += amount;
     addLog(`Moved ${amount} troops from ${from.name} to ${to.name}.`);
@@ -1583,6 +1592,22 @@
     if (!match || match.over) return;
     const mine = ownedCount(me());
     const total = totalTerritories();
+    if (isShared()) {
+      // Decide the winner from the same world state and faction order on every
+      // device. An eliminated player remains a spectator until the match ends;
+      // ending only their simulation early would desynchronise the room.
+      const active = match.factions.filter((f) => ownedCount(f.id) > 0);
+      const winner = active.find((f) => {
+        const coalition = active.filter((other) => other.id === f.id || areAllied(f.id, other.id));
+        const land = coalition.reduce((n, other) => n + ownedCount(other.id), 0);
+        return land / total >= 0.8 || coalition.length === active.length;
+      });
+      if (winner) {
+        const localWin = mine > 0 && (winner.id === me() || areAllied(winner.id, me()));
+        showVictory(localWin ? 'victory' : 'defeat', winner.id);
+      }
+      return;
+    }
     // In a shared match every other faction (human or AI) is a rival.
     const rivals = match.factions.filter((f) => f.id !== me() && !areAllied(me(), f.id) && ownedCount(f.id) > 0);
     const alliedLand = match.factions.filter((f) => f.id !== me() && areAllied(me(), f.id))
@@ -1597,11 +1622,11 @@
     if (outcome) showVictory(outcome);
   }
 
-  function showVictory(outcome) {
+  function showVictory(outcome, sharedWinner = null) {
     const match = state.match;
     if (!match || match.over) return;
     match.over = true;
-    match.winner = outcome === 'victory' ? me() : 'rival';
+    match.winner = sharedWinner || (outcome === 'victory' ? me() : 'rival');
     const win = outcome === 'victory';
     const gems = win ? 60 + Math.min(40, match.turn) : 10;
     const coins = win ? 250 + match.turn * 12 : 80;
@@ -3725,7 +3750,7 @@
         T, resolveAttack, transferTroops, buildStructure, launchNuke,
         conquerAll, endTurn, startMatch, fortify, showScreen, save,
         performAction, applyGameAction, applyRemoteSnapshot,
-        nukeUnlocked, areAllied, setAlliance, realtimeTick,
+        nukeUnlocked, areAllied, setAlliance, realtimeTick, checkVictory,
         deployRatio, setDeployRatio, openDiplomacyModal, openWarRoom, battleCoins,
         TERRAINS, BUILDINGS, AI_FACTIONS, REALTIME
       };
