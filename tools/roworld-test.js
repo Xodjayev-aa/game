@@ -86,6 +86,25 @@ const digest = (c) => {
   assert.equal(t.state.match.factions.length, 13, '1 human + 12 AI tribes');
   assert.ok(t.state.match.territories.filter((x) => x.capital).length >= 10, 'every big-lobby nation gets a capital');
 
+  // Real UI orders preserve territory IDs and the war room is informational.
+  t.startMatch({ seed: 'INTEL' });
+  const own = t.state.match.territories.find((x) => x.owner === t.state.match.localFaction);
+  const defense = t.performAction({ type: 'fortify', id: own.id });
+  assert.equal(defense.ok, true, 'fortify command keeps the territory ID');
+  assert.equal(own.defended, 2, 'selected region fortified');
+  assert.equal(c.$('actionRow').querySelector('[data-action="diplomacy"]').disabled, false, 'diplomacy is available');
+  const beforeIntel = digest(c);
+  c.$('btnIntel').click();
+  assert.match(c.$('modalRoot').textContent, /WORLD STANDINGS/);
+  assert.match(c.$('modalRoot').textContent, /WEAKEST LAND FRONTIERS/);
+  assert.equal(digest(c), beforeIntel, 'war room does not mutate simulation');
+  const frontier = c.$('modalRoot').querySelector('[data-focus-region]');
+  if (frontier) {
+    const id = frontier.dataset.focusRegion;
+    frontier.click();
+    assert.equal(t.ui.selected, id, 'frontier shortcut selects region');
+  } else c.$('modalRoot').querySelector('[data-modal-close]').click();
+
   // 3. Q/E deployment ratio + HUD + preset buttons.
   t.startMatch({ seed: 'RATIO' });
   const before = t.deployRatio();

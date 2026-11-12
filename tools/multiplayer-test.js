@@ -71,7 +71,7 @@ const digest = (c) => {
   return JSON.stringify({
     seed: m.seed, turn: m.turn, seq: m.seq, rngState: m.rngState,
     warheads: m.warheads, nukeUnlocked: m.nukeUnlocked, alliances: (m.alliances || []).slice().sort(), realtime: m.realtime,
-    factions: m.factions.map((f) => [f.id, f.name, f.eliminated]),
+    factions: m.factions.map((f) => [f.id, f.name, f.eliminated, f.coins]),
     territories: m.territories.map((t) => [t.id, t.owner, t.troops, t.fallout, t.defended, t.terrain, t.buildings.city, t.buildings.port, t.buildings.factory, t.buildings.post, t.buildings.sam, t.buildings.silo]),
     matchStats: m.matchStats
   });
@@ -173,6 +173,35 @@ async function waitFor(label, fn, ms = 6000) {
     A.window.__RF_TEST__.state.match.turn > beforeTurn &&
     B.window.__RF_TEST__.state.match.turn > beforeTurn, 9000);
   assert.equal(digest(A), digest(B), 'battlefields identical after AI turn + round income');
+
+  // Region IDs must survive intent de-duplication, and all replicas must
+  // validate against the same match treasury, not either device's wallet.
+  const tB = B.window.__RF_TEST__;
+  const site = tB.state.match.territories.find((x) => x.owner === tB.state.match.localFaction);
+  assert.ok(site, 'peer owns a region');
+  tB.state.wallet.coins = 0;
+  const beforeSeq = tB.state.match.seq;
+  tB.performAction({ type: 'build', id: site.id, key: 'city' });
+  await waitFor('peer construction replicated', () => tA.state.match.seq === beforeSeq + 1 && tB.state.match.seq === beforeSeq + 1);
+  assert.equal(tB.T(site.id).buildings.city, true, 'build targets the selected territory despite an empty profile wallet');
+  assert.equal(tA.T(site.id).buildings.city, true, 'host sees the same structure');
+  assert.equal(digest(A), digest(B), 'treasury and board stay in sync after construction');
+  const fortSeq = tB.state.match.seq;
+  tB.performAction({ type: 'fortify', id: site.id });
+  await waitFor('fortification replicated', () => tA.state.match.seq === fortSeq + 1 && tB.state.match.seq === fortSeq + 1);
+  assert.equal(tB.T(site.id).defended, 2, 'fortify targets the selected territory');
+  assert.equal(digest(A), digest(B), 'fortification and treasury stay in sync');
+
+  // A disconnected client must never mutate a shared match locally.
+  const net = tB.lobby;
+  const wsReady = net.wsReady, mqttReady = net.mqttReady;
+  net.wsReady = net.mqttReady = false;
+  const frozen = digest(B), seq = tB.state.match.seq;
+  const rejected = tB.performAction({ type: 'fortify', id: site.id });
+  assert.equal(rejected.ok, false, 'disconnected command rejected');
+  assert.equal(digest(B), frozen, 'disconnected board unchanged');
+  assert.equal(tB.state.match.seq, seq, 'disconnected sequence unchanged');
+  net.wsReady = wsReady; net.mqttReady = mqttReady;
 
   // Snapshot resync: rebuild B from the host's authoritative state.
   const snap = A.window.__RF_TEST__.lobby.getSnapshot();

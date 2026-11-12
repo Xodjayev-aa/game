@@ -494,3 +494,14 @@ body[data-screen="game"] .toast-stack { top: auto; bottom: calc(202px + var(--sa
 .diplomacy-row button { min-width: 78px; padding: 8px 10px; border-radius: 8px; cursor: pointer; border: 0; font: 700 10px var(--mono, monospace); background: rgba(86, 220, 226, .16); color: #d9f7ff; }
 .diplomacy-row button.break { background: rgba(255, 100, 115, .16); color: #ffc2c9; }
 .terrain-tag { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 6px; font-size: 10px; background: rgba(120, 180, 225, .14); color: #cfe4f6; }
+
+/* War room: compact, touch-friendly intelligence without changing game state. */
+.intel-heading { margin: 20px 0 8px; color: var(--gold, #f5be4a); font-size: .75rem; letter-spacing: .12em; }
+.intel-list { display: grid; gap: 6px; }
+.intel-row, .intel-frontier { display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid rgba(160,190,210,.16); border-radius: 9px; background: rgba(255,255,255,.035); }
+.intel-rank { color: #9bacc0; min-width: 1.3em; }
+.intel-row small, .intel-score small { display: block; color: #9bacc0; font-size: .72rem; }
+.intel-score { text-align: right; white-space: nowrap; }
+.intel-frontier { width: 100%; color: inherit; justify-content: space-between; text-align: left; cursor: pointer; }
+.intel-frontier small { color: #9bacc0; }
+.intel-frontier:focus-visible { outline: 2px solid #f5be4a; }

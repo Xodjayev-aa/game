@@ -200,7 +200,7 @@ async function runCommand(text) {
   assert.equal($('btnStartRoom').disabled, false, 'host can start the room');
   click('btnStartRoom');
   await sleep(900);
-  assert.equal(t.state.match.mode, 'online', 'lobby launched online-labelled match');
+  assert.equal(t.state.match.mode, 'offline', 'local lobby simulation launches an offline match');
   assert.equal(active(), 'screen-game', 'game launched from lobby');
 
   // Owner verification + commands.

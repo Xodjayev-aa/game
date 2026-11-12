@@ -38,9 +38,23 @@
   }
   const isShared = () => !!(state.match && state.match.mode === 'online');
   const isLocalActor = () => acting() === me();
+  // Multiplayer treasuries are part of the replicated match, not the local profile.
+  function battleCoins(fid = acting()) {
+    if (!isShared()) return state.wallet.coins;
+    const f = state.match.factions.find((x) => x.id === fid);
+    return f ? (Number.isFinite(f.coins) ? f.coins : 300) : 0;
+  }
+  function spendBattleCoins(amount) {
+    if (battleCoins() < amount) return false;
+    if (isShared()) {
+      const f = state.match.factions.find((x) => x.id === acting());
+      f.coins = battleCoins() - amount;
+    } else state.wallet.coins -= amount;
+    return true;
+  }
   const NEUTRAL = 'neutral';
   const SAVE_KEY = 'rofrontier.save.v2';
-  const VERSION = '1.2.0';
+  const VERSION = '1.3.0';
 
   function hashSeed(str) {
     let h = 2166136261;
@@ -923,13 +937,13 @@
     const aiBots = clamp(Number(opts.bots ?? botCount) || 0, 0, 12);
     const factions = seats.map((s, i) => ({
       id: `F${i}`, name: s.name, color: s.color, light: s.light || s.color,
-      isAI: false, eliminated: false
+      isAI: false, eliminated: false, coins: 300
     }));
     for (let i = 0; i < aiBots; i++) {
       const f = AI_FACTIONS[i % AI_FACTIONS.length];
       factions.push({
         id: `F${seats.length + i}`, name: f.name, color: f.color, light: f.light,
-        isAI: true, eliminated: false
+        isAI: true, eliminated: false, coins: 300
       });
     }
 
@@ -1187,10 +1201,7 @@
     if (!buildingUnlocked(spec)) return { ok: false, message: `Locked — reach ${isShared() ? 'turn ' + spec.level * 2 : 'commander level ' + spec.level}.` };
     if (spec.coastal && !t.coastal) return { ok: false, message: 'Ports require a coastal region.' };
     if (t.buildings[key]) return { ok: false, message: `${spec.name} already built here.` };
-    if (isLocalActor()) {
-      if (state.wallet.coins < spec.cost) return { ok: false, message: `Need ${spec.cost} Battle Coins.` };
-      state.wallet.coins -= spec.cost;
-    }
+    if (!spendBattleCoins(spec.cost)) return { ok: false, message: `Need ${spec.cost} Battle Coins.` };
     t.buildings[key] = true;
     if (key === 'silo') { match.warheads += 2; match.nukeUnlocked = true; }
     state.match.matchStats.buildings++;
@@ -1205,8 +1216,7 @@
   function fortify(id, free = false, turns = 2) {
     const t = T(id);
     if (!t || t.owner !== acting()) return { ok: false, message: 'You can only defend your own territory.' };
-    if (isLocalActor() && !free && state.wallet.coins < DEFEND_COST) return { ok: false, message: `Need ${DEFEND_COST} Battle Coins.` };
-    if (isLocalActor() && !free) state.wallet.coins -= DEFEND_COST;
+    if (!free && !spendBattleCoins(DEFEND_COST)) return { ok: false, message: `Need ${DEFEND_COST} Battle Coins.` };
     t.defended = Math.max(t.defended, turns);
     addLog(`${t.name} fortified (+35% defence for ${turns} turns).`);
     floatText(t, 'FORTIFIED', '#56dce2');
@@ -1234,11 +1244,8 @@
     if (!target) return { ok: false, message: `Territory "${id}" not found. Try /reveal.` };
     if (!opts.admin && !nukeUnlocked()) return { ok: false, message: 'Nukes unlock at commander level 5 or turn 12.' };
     if (!opts.free) {
-      if (isLocalActor()) {
-        if (match.warheads < 1) return { ok: false, message: 'No warheads. Buy one in the Supply Store.' };
-        if (state.wallet.coins < NUKE_COIN_COST) return { ok: false, message: `Launch requires ${NUKE_COIN_COST} Battle Coins.` };
-        state.wallet.coins -= NUKE_COIN_COST;
-      }
+      if (match.warheads < 1) return { ok: false, message: 'No warheads available.' };
+      if (!spendBattleCoins(NUKE_COIN_COST)) return { ok: false, message: `Launch requires ${NUKE_COIN_COST} Battle Coins.` };
       match.warheads = Math.max(0, match.warheads - 1);
     }
     // Surface-to-air missiles shield the target AND its neighbours.
@@ -1332,12 +1339,14 @@
         }
         if (t.defended > 0) t.defended--;
       });
-      if (f.id === me()) {
+      if (isShared() || f.id === me()) {
         const cities = owned.filter((t) => t.buildings.city).length;
         const ports = owned.filter((t) => t.buildings.port).length;
         const allies = (match.alliances || []).filter((k) => k.split('|').includes(f.id)).length;
         const income = 12 + owned.length * 2 + cities * 6 + ports * 2 + allies * 8 + (match.godMode && f.id === match.godFaction ? 500 : 0);
-        state.wallet.coins += income;
+        if (isShared()) f.coins = battleCoins(f.id) + income;
+        else state.wallet.coins += income;
+        if (f.id !== me()) return;
         state.stats.turns++;
         state.stats.xp += 12;
         trackEvent('turn');
@@ -1435,11 +1444,19 @@
     match.factions.filter((f) => f.isAI && !f.eliminated).forEach((f) => {
       if (!match.over) aiTakeTurn(f.id, match.tickMs <= 1000 ? 1 : 2);
     });
+    if (isShared()) match.factions.forEach((f) => {
+      const owned = ownedByFaction[f.id] || [];
+      if (!owned.length) return;
+      const allies = (match.alliances || []).filter((k) => k.split('|').includes(f.id)).length;
+      const cities = owned.filter((t) => t.buildings.city).length;
+      const ports = owned.filter((t) => t.buildings.port).length;
+      f.coins = battleCoins(f.id) + 6 + owned.length + allies * 4 + cities * 6 + ports * 2;
+    });
     const owned = ownedByFaction[me()] || [];
     if (owned.length) {
       const allies = (match.alliances || []).filter((k) => k.split('|').includes(me())).length;
-      const income = 6 + owned.length + allies * 4;
-      state.wallet.coins += income;
+      const income = 6 + owned.length + allies * 4 + owned.filter((t) => t.buildings.city).length * 6 + owned.filter((t) => t.buildings.port).length * 2;
+      if (!isShared()) state.wallet.coins += income;
       state.stats.turns++;
       state.stats.xp += 4;
       trackEvent('turn');
@@ -1489,8 +1506,9 @@
   function performAction(action, opts = {}) {
     const match = state.match;
     if (!match || match.over) return { ok: false, message: 'No active campaign.' };
-    const full = { ...action, id: uid('a'), faction: action.faction || acting(), by: (lobby && lobby.selfId) || 'local' };
-    if (isShared() && lobby && lobby.state.room && !opts.remote) {
+    const full = { ...action, intentId: uid('a'), faction: action.faction || acting(), by: (lobby && lobby.selfId) || 'local' };
+    if (isShared() && !opts.remote) {
+      if (!lobby || !lobby.state.room) return { ok: false, message: 'Room unavailable. Rejoin to continue.' };
       if (lobby.sendGameIntent(full)) {
         // Client-side prediction: mark the target instantly so the tap feels
         // immediate; authoritative state arrives as a sequenced delta.
@@ -1498,6 +1516,7 @@
         renderGame();
         return { ok: true, queued: true, message: 'Order broadcast to all commanders.' };
       }
+      return { ok: false, message: 'Connection lost. Orders are paused until the relay reconnects.' };
     }
     return applyGameAction(full);
   }
@@ -1976,7 +1995,7 @@
       : match.tickMs > 0 ? `LIVE T${match.turn} · ${(REALTIME[match.realtime] || REALTIME.off).label}`
         : match.phase === 'ai' ? `TURN ${match.turn} · ENEMY MOVES`
           : `TURN ${match.turn} · YOUR MOVE`;
-    $('gameSummary').textContent = `${mine}/${totalTerritories()} regions · ${fmt(troops)} troops · ${DIFFICULTY[match.difficulty].label} AI`;
+    $('gameSummary').textContent = `${mine}/${totalTerritories()} regions · ${fmt(troops)} troops · ${isShared() ? '◉ ' + fmt(battleCoins(me())) + ' treasury' : DIFFICULTY[match.difficulty].label + ' AI'}`;
     $('warheadChip').innerHTML = `☢ <b>${match.warheads}</b>`;
     $('btnCommand').hidden = !(admin && admin.isUnlocked());
 
@@ -2012,8 +2031,8 @@
     const canTransfer = !!(sel && target && sel.owner === me() && target.owner === me() && link.ok && sel.troops > 1 && !match.over && match.phase === 'player');
     const canBuild = !!(sel && sel.owner === me() && !match.over);
     const canDefend = canBuild && match.phase === 'player';
-    const canNuke = !!(match && !match.over && nukeUnlocked() && match.warheads > 0 && state.wallet.coins >= NUKE_COIN_COST && (target || sel));
-    const buttons = { attack: canAttack, transfer: canTransfer, defend: canDefend, build: canBuild, nuke: canNuke, info: !!(sel || target || ui.inspect) };
+    const canNuke = !!(match && !match.over && nukeUnlocked() && match.warheads > 0 && battleCoins(me()) >= NUKE_COIN_COST && (target || sel));
+    const buttons = { attack: canAttack, transfer: canTransfer, defend: canDefend, build: canBuild, nuke: canNuke, info: !!(sel || target || ui.inspect), diplomacy: !match.over };
     $$('#actionRow .action').forEach((b) => {
       const a = b.dataset.action;
       b.disabled = !buttons[a];
@@ -2230,14 +2249,14 @@
       const locked = !buildingUnlocked(b);
       const coast = b.coastal && !t.coastal;
       const built = t.buildings[key];
-      const disabled = locked || coast || built || state.wallet.coins < b.cost;
+      const disabled = locked || coast || built || battleCoins(me()) < b.cost;
       const note = built ? 'BUILT' : locked ? (isShared() ? `TURN ${b.level * 2}` : `LEVEL ${b.level}`) : coast ? 'COASTAL ONLY' : `◉ ${b.cost}`;
       return `<button class="modal-action" data-build="${key}" ${disabled ? 'disabled' : ''}>
         <i>${b.glyph}</i><span class="grow"><strong>${b.name}</strong><small>${b.desc}</small></span><span class="price">${note}</span></button>`;
     }).join('');
     const { modal } = openModal({
       title: `⚙ Build in ${esc(t.name)}`,
-      sub: `Commander level ${level()} · Balance: ◉ ${fmt(state.wallet.coins)} Battle Coins · ${t.id} ${t.coastal ? '· coastal' : '· inland'}`,
+      sub: `Commander level ${level()} · Balance: ◉ ${fmt(battleCoins(me()))} Battle Coins${isShared() ? ' (match treasury)' : ''} · ${t.id} ${t.coastal ? '· coastal' : '· inland'}`,
       html: `<div class="modal-actions">${rows}</div><p class="hint">Cities raise income, Ports unlock naval transport across sea lanes, Factories accelerate recruitment.</p>`,
       actions: [{ label: 'CLOSE', onClick: (close) => close() }]
     });
@@ -2293,7 +2312,7 @@
       return `<div class="diplomacy-row">
         <i class="swatch" style="background:${f.color}"></i>
         <div class="grow"><strong>${esc(f.name)} <small>${f.isAI ? 'AI tribe' : 'Commander'}</small></strong>
-        <small>${ownedCount(f.id)} regions · ${allied ? '⚑ Alliance active · +8 coins/tick trade' : 'Open to negotiations'}</small></div>
+        <small>${ownedCount(f.id)} regions · ${allied ? '⚑ Alliance active · trade income' : 'Open to negotiations'}</small></div>
         <button type="button" class="${allied ? 'break' : ''}" data-ally="${f.id}" data-on="${allied ? '0' : '1'}">${allied ? 'BREAK' : 'ALLY'}</button>
       </div>`;
     }).join('');
@@ -2312,6 +2331,36 @@
     }));
   }
 
+  // Read-only intelligence is calculated from the live board and never changes
+  // the simulation, so it is equally useful offline and in online matches.
+  function openWarRoom() {
+    const match = state.match;
+    if (!match) return;
+    const rows = match.factions.map((f) => {
+      const regions = match.territories.filter((t) => t.owner === f.id);
+      return { f, count: regions.length, troops: regions.reduce((n, t) => n + t.troops, 0) };
+    }).sort((a, b) => b.count - a.count || b.troops - a.troops || a.f.id.localeCompare(b.f.id));
+    const mine = match.territories.filter((t) => t.owner === me());
+    const frontiers = mine.filter((t) => (map.adj[t.id] || []).some((id) => {
+      const other = T(id);
+      return other && other.owner !== me() && !areAllied(me(), other.owner);
+    })).sort((a, b) => a.troops - b.troops || a.id.localeCompare(b.id));
+    const list = rows.map(({ f, count, troops }, i) => `<div class="intel-row">
+      <span class="intel-rank">${i + 1}</span><i class="legend-swatch" style="background:${esc(f.color)}"></i>
+      <span class="grow"><strong>${esc(f.name)}${f.id === me() ? ' · YOU' : ''}</strong><small>${f.isAI ? 'AI tribe' : 'Commander'}${areAllied(me(), f.id) && f.id !== me() ? ' · Allied' : ''}</small></span>
+      <span class="intel-score"><b>${count} regions</b><small>${fmt(troops)} troops</small></span></div>`).join('');
+    const borders = frontiers.slice(0, 6).map((t) => `<button type="button" class="intel-frontier" data-focus-region="${esc(t.id)}"><span>${esc(t.name)} <small>${esc(t.terrainName)}</small></span><b>${fmt(t.troops)} troops ↗</b></button>`).join('');
+    const { modal, close } = openModal({ title: '◉ War Room', sub: `Live intelligence · Turn ${match.turn} · ${match.territories.length} regions`, wide: true,
+      html: `<h3 class="intel-heading">WORLD STANDINGS</h3><div class="intel-list">${list}</div><h3 class="intel-heading">YOUR WEAKEST LAND FRONTIERS</h3><p class="hint">Tap a region to locate it. Naval threats are not included.</p><div class="intel-list">${borders || '<p class="hint">No exposed land borders.</p>'}</div>`,
+      actions: [{ label: 'BACK TO MAP', kind: 'btn-primary' }] });
+    $$('[data-focus-region]', modal).forEach((button) => button.addEventListener('click', () => {
+      const t = T(button.dataset.focusRegion);
+      if (!t) return;
+      ui.selected = t.id; ui.target = ui.inspect = null;
+      close(); focusOn(t, Math.max(view.scale, 0.8)); renderGame();
+    }));
+  }
+
   function openHelpModal() {
     openModal({
       title: 'Field Manual',
@@ -2322,6 +2371,7 @@
         <li><b>Terrain:</b> <b>Plains</b> give +10% attack and +1 recruit; <b>Highlands</b> add +12% defence; <b>Mountains</b> add +32% defence but −10% attack. Coastal regions are more likely to be plains, so spawn near water.</li>
         <li><b>Infrastructure:</b> Cities (income), Ports (sea lanes), Factories (recruits), <b>Defense Posts</b> (+25% permanent defence), <b>SAM Sites</b> (intercept nuclear strikes on themselves and neighbours), <b>Missile Silos</b> (instant nuke unlock +2 warheads).</li>
         <li><b>Real-time mode:</b> choose REAL-TIME 2s or BLITZ 1s at setup. The world ticks continuously — economy, AI attacks and reinforcements — with every tick sequenced by the host so online play stays perfectly in sync. Space forces a tick; turn-based mode is still available.</li>
+        <li><b>War room:</b> tap ◉ or press I for standings, troop totals and your weakest land frontiers. Tap a frontier to focus it on the map.</li>
         <li><b>Diplomacy:</b> press <b>D</b> or tap Allies. Pacts block attacks between signatories, add passive trade income and allow a shared 80% map victory in co-op.</li>
         <li><b>Transfer / Defend:</b> move troops between connected owned regions; long-press one of your regions (or tap ⬟) to fortify it for +35% defence.</li>
         <li><b>Late game:</b> nuclear weapons unlock at level 5, turn 12, or immediately with a Missile Silo. Fallout blocks recruitment for several turns; SAM batteries counter strikes.</li>
@@ -2642,7 +2692,7 @@
         const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
         const room = {
-          code, host: this.selfId, max: Math.max(2, Math.min(6, Number(payload.max) || 4)),
+          code, host: this.selfId, max: Math.max(2, Math.min(8, Number(payload.max) || 4)),
           difficulty: payload.difficulty || 'normal', speed: payload.speed || 'off',
           players: [this.selfPlayer()], rev: 1, started: false, seats: null, bots: null
         };
@@ -2795,7 +2845,7 @@
       this.lockUntil = 0;
       this.appliedIntents.clear();
       if (this.onStartMatch) this.onStartMatch({
-        mode: 'online', seed: `ROOM-${room.code}`, difficulty: room.difficulty || 'normal',
+        mode: room.localSimulation ? 'offline' : 'online', seed: `ROOM-${room.code}`, difficulty: room.difficulty || 'normal',
         realtime: room.speed || 'off', seats, localSeat, bots, room
       });
     }
@@ -2807,7 +2857,7 @@
       this.broadcastMesh({ kind: 'game_intent', action });
       const before = this.getSeq();
       setTimeout(() => {
-        if (!this.stopped && this.state.room && this.getSeq() === before && action.id) {
+        if (!this.stopped && this.state.room && this.getSeq() === before && action.intentId) {
           this.broadcastMesh({ kind: 'game_intent', action });
         }
       }, 2200);
@@ -2815,8 +2865,8 @@
     }
     hostGameIntent(action) {
       if (!this.state.room || !this.state.room.started) return;
-      if (action.id && this.appliedIntents.has(action.id)) return;
-      if (action.id && this.appliedIntents.size > 300) this.appliedIntents.clear();
+      if (action.intentId && this.appliedIntents.has(action.intentId)) return;
+      if (action.intentId && this.appliedIntents.size > 300) this.appliedIntents.clear();
       if (action.type === 'end_turn' && (this.getPhase() !== 'player' || Date.now() < this.lockUntil)) {
         this.pushSystem('Turn resolving — wait a moment before ending again.');
         this.onChange();
@@ -2827,7 +2877,7 @@
       if (idx >= 0) action.faction = `F${idx}`; // server-side seat authority
       const seq = Math.max(this.getSeq(), this.hostSeq || 0) + 1;
       this.hostSeq = seq;
-      if (action.id) this.appliedIntents.add(action.id);
+      if (action.intentId) this.appliedIntents.add(action.intentId);
       this.broadcastMesh({ kind: 'game_action', seq, action });
       if (this.onGameAction) this.onGameAction(action, seq);
       if (action.type === 'end_turn') this.lockUntil = Date.now() + 3400;
@@ -2951,14 +3001,14 @@
         for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
         const selfPlayer = this.selfPlayer();
         s.room = {
-          code, host: this.selfId, max: Number(payload.max) || 4,
+          code, localSimulation: true, host: this.selfId, max: Number(payload.max) || 4,
           difficulty: payload.difficulty || 'normal', speed: payload.speed || state.settings.realtime || 'off',
           players: [selfPlayer], rev: 1, started: false,
           seats: [{ id: selfPlayer.id, name: selfPlayer.name, color: selfPlayer.color, light: selfPlayer.light }],
           bots: null
         };
         s.players = s.room.players; s.host = true;
-        sys(`Room ${code} created (local simulation). Share the code with friends.`);
+        sys(`Room ${code} created (local simulation only — other devices cannot join).`);
         this.matchRoomCode = null;
         const botCount = type === 'quick_match' ? Math.min(3, s.room.max - 1) : 1;
         for (let i = 1; i <= botCount; i++) {
@@ -2977,7 +3027,7 @@
         const selfPlayer = this.selfPlayer();
         const host = { id: 'local-host', name: 'Room Host', ready: true, bot: true, color: '#e2505e' };
         s.room = {
-          code, host: this.selfId, max: 4, difficulty: payload.difficulty || 'normal',
+          code, localSimulation: true, host: this.selfId, max: 4, difficulty: payload.difficulty || 'normal',
           speed: payload.speed || state.settings.realtime || 'off', players: [selfPlayer, host], rev: 1, started: false,
           seats: [
             { id: selfPlayer.id, name: selfPlayer.name, color: selfPlayer.color, light: selfPlayer.light },
@@ -3028,7 +3078,7 @@
       state.settings.bots = opts.bots;
       state.settings.difficulty = opts.difficulty || 'normal';
       startMatch(opts);
-      toast(`Online match · ${opts.seats.length} commanders · ${opts.bots} AI rivals`, 'success');
+      toast(`${opts.room && opts.room.localSimulation ? 'Offline simulation' : 'Online match'} · ${opts.seats.length} commanders · ${opts.bots} AI rivals`, 'success');
     };
     // Probes the same-origin /ws relay AND the free public bus. If both are
     // unreachable the game silently switches to its offline lobby simulation.
@@ -3333,6 +3383,7 @@
     $('btnZoomOut').addEventListener('click', () => { zoomAt(0.8, view.w / 2, view.h / 2); draw(); });
     $('btnFit').addEventListener('click', () => { fitMap(false); draw(); });
     $('btnGameMenu').addEventListener('click', openGameMenuModal);
+    $('btnIntel').addEventListener('click', openWarRoom);
     $('btnEndTurn').addEventListener('click', () => performAction({ type: state.match && state.match.tickMs > 0 ? 'tick' : 'end_turn' }));
     $('btnDeployDown').addEventListener('click', () => stepDeployRatio(-0.1));
     $('btnDeployUp').addEventListener('click', () => stepDeployRatio(0.1));
@@ -3525,6 +3576,7 @@
       if (k === 'q') { e.preventDefault(); stepDeployRatio(-0.1); }
       else if (k === 'e') { e.preventDefault(); stepDeployRatio(0.1); }
       else if (k === 'd') { e.preventDefault(); openDiplomacyModal(); }
+      else if (k === 'i') { e.preventDefault(); openWarRoom(); }
       else if (k === ' ' && state.match) { e.preventDefault(); performAction({ type: state.match.tickMs > 0 ? 'tick' : 'end_turn' }); }
     });
     // Host-sequenced real-time ticks. Offline campaigns tick locally; online
@@ -3535,8 +3587,8 @@
       const now = Date.now();
       if (now - (m.lastTickAt || 0) < m.tickMs) return;
       m.lastTickAt = now;
-      if (isShared() && lobby && lobby.state.room && lobby.meshReady()) {
-        if (lobby.isHost()) lobby.hostGameIntent({ type: 'tick', id: uid('a'), by: lobby.selfId });
+      if (isShared()) {
+        if (lobby && lobby.state.room && lobby.meshReady() && lobby.isHost()) lobby.hostGameIntent({ type: 'tick', intentId: uid('a'), by: lobby.selfId });
       } else {
         performAction({ type: 'tick' });
       }
@@ -3674,7 +3726,7 @@
         conquerAll, endTurn, startMatch, fortify, showScreen, save,
         performAction, applyGameAction, applyRemoteSnapshot,
         nukeUnlocked, areAllied, setAlliance, realtimeTick,
-        deployRatio, setDeployRatio, openDiplomacyModal,
+        deployRatio, setDeployRatio, openDiplomacyModal, openWarRoom, battleCoins,
         TERRAINS, BUILDINGS, AI_FACTIONS, REALTIME
       };
     }

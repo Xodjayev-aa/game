@@ -4,7 +4,7 @@
  * - static assets: stale-while-revalidate (fresh in background, cached copy is instant)
  * - never intercepts WebSocket upgrades, non-GET requests or cross-origin calls
  */
-const VERSION = 'rofrontier-v1.2.0';
+const VERSION = 'rofrontier-v1.3.0';
 const CACHE = `rofrontier-shell-${VERSION}`;
 const SHELL = [
   './',

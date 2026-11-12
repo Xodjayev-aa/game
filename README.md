@@ -19,9 +19,9 @@ node server.js 3000
 
 `server.js` also runs in the Arena live preview (`node server.js`, port 3000, bound to `0.0.0.0`). It serves the app and hosts `/ws` so **online lobbies are genuinely real-time** between two browser windows. No npm install is required: the WebSocket protocol is implemented natively with Node's `http`/`crypto` modules.
 
-**Deploying to free static hosting (Vercel / Netlify / GitHub Pages):** no server process is needed. `free-relay.js` speaks MQTT 3.1.1 over secure WebSockets to free anonymous public brokers (`broker.emqx.io`, `broker.hivemq.com`, `test.mosquitto.org`). There is no account, no API key, no billing and nothing to configure — upload the repository as a static site and room codes work across devices and networks. The client tries the same-origin `/ws` relay and the public bus at the same time, de-duplicates packets by message id, and uses whichever is reachable. Set `state.settings.wsUrl` (Settings → WebSocket relay URL) to point at your own relay if you host one later.
+**Deploying to free static hosting (Vercel / Netlify / GitHub Pages):** no server process is needed. `free-relay.js` speaks MQTT 3.1.1 over secure WebSockets to free anonymous public brokers (`broker.emqx.io`, `broker.hivemq.com`, `test.mosquitto.org`). There is no account, API key or paid subscription required by the client. On static hosting, cross-device rooms depend on a reachable public broker; broker availability and network access are not guaranteed. The client tries the same-origin `/ws` relay and the public bus at the same time, de-duplicates packets by message id, and uses whichever is reachable. Set `state.settings.wsUrl` (Settings → WebSocket relay URL) to point at your own relay if you host one later.
 
-> Public test brokers are shared, unauthenticated and best-effort: they are perfect for a free game, but they offer no privacy or uptime guarantee and are rate-limited. Room codes are unguessable-ish 6-character strings, not secrets. For a private deployment, run `server.js` or set your own relay URL.
+> Public test brokers are shared, unauthenticated and best-effort: they are useful for experimentation, but they offer no privacy or uptime guarantee and are rate-limited. Room codes are not secrets. The included relay is also unauthenticated: neither transport provides privacy, anti-cheat, or identity verification. Do not use it for sensitive information or competitive play requiring trusted enforcement.
 
 > The service worker only activates over `http(s)` (or localhost). Once installed, the entire shell — `index.html`, `style.css`, `game.js`, `admin.js`, `free-relay.js`, `manifest.json`, icons — is pre-cached. Offline campaigns, the store, cosmetics, achievements and the local lobby simulation all keep working with the network disconnected.
 
@@ -58,10 +58,11 @@ Everything persists in `localStorage` under `rofrontier.save.v2` (profile, walle
 ## How to play
 
 1. **New Conquest** → set commander name, AI difficulty (Recruit / Commander / Warlord / Legend), 1–12 rival tribes, battle speed (turn-based / real-time 2s / blitz 1s), nation theme, map skin and world seed → **Deploy Troops**. Online lobbies support up to 8 real commanders plus AI tribes filling the rest.
-2. **Map controls (touch-first):** drag to pan, pinch or `＋ / −` to zoom, `⊙` to fit the whole world. Tap one of your regions, then tap a neighbour. A second tap on the target opens the attack/transfer dialog immediately. Long-press one of your regions to fortify it. **Q / E** change the global deployment ratio (10–90%); **D** opens Diplomacy; **Space** forces a real-time tick.
+2. **Map controls (touch-first):** drag to pan, pinch or `＋ / −` to zoom, `⊙` to fit the whole world. Tap one of your regions, then tap a neighbour. A second tap on the target opens the attack/transfer dialog immediately. Long-press one of your regions to fortify it. **Q / E** change the global deployment ratio (10–90%); **D** opens Diplomacy; **Space** forces a real-time tick; **I** opens the War Room.
 3. **Orders:** `⚔ Attack` (dice-based Risk-style combat with a live odds estimate and deployment presets), `⇄ Transfer`, `⬟ Defend` (+35% defence for 2 turns), `⚙ Build`, `☢ Nuke`, `◎ Info`, `⚑ Allies`, `END TURN` (or `FORCE TICK` in real-time mode).
 4. **Terrain & economy:** every region is **Plains** (+10% attack, +1 recruit), **Highlands** (+12% defence) or **Mountains** (+32% defence, −10% attack); coasts are biased toward Plains for fast early expansion. Each tick grants income + recruits. **City** = +6 coins & +1 recruit, **Port** = naval transport (coastal only), **Factory** = +2 recruits. Continent control adds a bonus. Fallout blocks recruitment.
    - **Defense Post** = +25% permanent defence, **SAM Site** = intercepts a nuclear strike on itself or a neighbour, **Missile Silo** = instant nuke unlock + 2 warheads.
+   - **War Room:** tap ◉ or press I to view live standings, troop counts and your weakest land frontiers; tap a frontier to focus it on the map.
 5. **Late game:** nuclear weapons unlock at commander level 5, turn 12 or with a Missile Silo. A strike neutralises the target (4 turns of fallout), destroys its buildings and removes 55% of neighbouring garrisons unless a SAM intercepts it. Hard/insane AI can strike back after turn 14.
 6. **Diplomacy:** sign pacts with human commanders or AI tribes. Allies cannot attack each other, earn shared trade income and can win together at 80% combined control — real co-op with bots and people.
 7. **Victory:** hold **80%** of all 75 regions alone or with allies, or eliminate every non-allied rival. Losing all your regions ends the campaign. The victory screen shows stats, rewards, an equipped celebration animation and *Developed by CoMeBacK_49*.
@@ -81,7 +82,7 @@ The world is a 17×11 hex globe with 7 continents, 75 territories (`T01` … `T7
 
 ## Owner / Developer console — CoMeBacK_49
 
-**Access is exclusive.** Three gates:
+**Local convenience only:** this is client-side code, not a secure authentication system. Anyone with access to the app can inspect or modify it, and the bootstrap key below is public. Do not use this console to protect real privileges. Its UI has three local gates:
 
 1. The Owner ID must be exactly `CoMeBacK_49`.
 2. The access key is verified against a **salted SHA-256 digest** in `localStorage`.
@@ -121,16 +122,16 @@ Command history (↑ in the console input), quick-command chips and an in-match 
 
 ## Online mode — real cross-device play
 
-The lobby is a **lockstep mesh**, not a fake "online" label. The room creator is the authority: it assigns seats, sequences every command and owns the authoritative match state. Every device replays the same ordered command stream against the same seeded RNG, so PvP **and** co-op with AI bots stay in sync.
+The lobby is a **lockstep mesh**, not a fake "online" label. The room creator sequences commands and provides snapshots, while every client simulates the game. This is a cooperative client-hosted system, not a trusted server-authoritative or cheat-resistant service. Every device replays the same ordered command stream against the same seeded RNG, so PvP **and** co-op with AI bots stay in sync.
 
 - **No paid infrastructure.** Two free transports are attempted in parallel and de-duplicated by message id:
   1. the bundled same-origin `/ws` relay (`server.js`, native RFC 6455, zero npm dependencies);
   2. a free anonymous public MQTT-over-WSS bus (`free-relay.js`) which works from purely static hosting with no server, account or API key.
 - **Rooms:** create a room → share the 6-character code → the other player joins from any device/network → ready up → host presses **START MATCH**. Each human gets a real faction; empty seats are filled by AI bots.
 - **Lockstep commands:** `attack`, `transfer`, `build`, `fortify`, `nuke`, `end_turn` and all owner QA commands are packed as small action objects. The host stamps a monotonically increasing `seq`; each client applies it via `applyGameAction()` and rejects duplicates/out-of-order packets, requesting a full state snapshot when it detects a gap.
-- **Determinism:** combat dice, AI scoring/builds/strikes, terrain and world generation use a shared seeded PRNG (`grng()` / `mulberry32`), never `Math.random()`. Local-only data (wallet, XP, cosmetics, achievements, saved campaigns) is kept out of the replicated state, so different devices never diverge because of different unlocks.
-- **Delta-only sync + client-side prediction:** a tap paints an instant pulsing order marker while the host validates and broadcasts a tiny JSON command (an attack is ~80 bytes) rather than a full world snapshot. The marker clears as soon as the sequenced delta is applied. Real-time ticks are the same: one small packet per tick for up to 20 nations.
-- **Resilience:** heartbeat every 1.5 s; if the host drops out the lowest-id client automatically takes over authority. Late joiners and lagged clients receive a `game_state` snapshot and resume mid-match. Disconnected clients can keep playing their saved campaign offline and re-sync later.
+- **Determinism:** combat dice, AI scoring/builds/strikes, terrain and world generation use a shared seeded PRNG (`grng()` / `mulberry32`), never `Math.random()`. Each online faction has a replicated match treasury (starting at 300 coins) for buildings, fortification and launches. Profile wallet, XP, cosmetics and achievements remain local; online rules do not depend on those profile balances.
+- **Delta-only sync + client-side prediction:** a tap paints an instant pulsing order marker while the host sequences and broadcasts a small JSON command (an attack is ~80 bytes) rather than a full world snapshot. The marker clears as soon as the sequenced delta is applied. Real-time ticks are the same: one small packet per tick for up to 20 nations.
+- **Resilience:** heartbeat every 1.5 s; if the host drops out the lowest-id client automatically takes over authority. Late joiners and lagged clients receive a `game_state` snapshot and resume mid-match. Shared-match orders and automatic ticks pause when no relay is available rather than mutating a disconnected copy. Reconnection and host migration are best-effort; a separate offline campaign remains available.
 - **Offline fallback:** if neither relay is reachable (or the device is offline), the lobby switches to its **local simulation** — create/join/ready/chat/start and AI lobby bots still work, and a full bots-only campaign launches. Installed PWA play never depends on a network.
 
 Legacy `/ws` room messages (`hello`, `create_room`, `join_room`, `ready`, `chat`, `start`, `leave`, `ping`) remain supported for custom relays. The mesh adds `subscribe` + `relay` channel broadcasts:
@@ -141,7 +142,7 @@ Legacy `/ws` room messages (`hello`, `create_room`, `join_room`, `ready`, `chat`
     "action": { "type": "attack", "from": "T01", "to": "T07", "troops": 9 } } }
 ```
 
-Other mesh kinds: `room_state`, `cmd` (`join_request` / `ready` / `leave` / `start`), `chat`, `match_start`, `game_intent`, `host_state`, `state_request`, `game_state`. Rooms are ephemeral, capped at 6 human players, with automatic host migration.
+Other mesh kinds: `room_state`, `cmd` (`join_request` / `ready` / `leave` / `start`), `chat`, `match_start`, `game_intent`, `host_state`, `state_request`, `game_state`. Rooms are ephemeral, capped at 8 human players, with best-effort host migration.
 
 ---
 
